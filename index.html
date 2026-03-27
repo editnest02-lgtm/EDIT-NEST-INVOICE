@@ -38,7 +38,7 @@
         th { background: #f8fafc; padding: 12px; text-align: left; border-bottom: 2px solid #ddd; }
         td { padding: 12px; border-bottom: 1px solid #f1f5f9; }
 
-        .search-container { display: flex; gap: 10px; margin-bottom: 15px; }
+        .search-container { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; }
         .search-container input { flex: 1; }
 
         #invoice-render { background: white; width: 210mm; min-height: 297mm; padding: 20mm; margin: 20px auto; border: 1px solid #ddd; display: none; box-sizing: border-box; }
@@ -50,7 +50,7 @@
         @media print {
             @page { size: A4; margin: 0; }
             body { background: white; }
-            .sidebar, .no-print, .stats-grid, .box, header, .search-container { display: none !important; }
+            .sidebar, .no-print, .stats-grid, .box, header, .search-container, .month-filter { display: none !important; }
             .main-content { padding: 0 !important; margin: 0 !important; overflow: visible !important; }
             #invoice-render { display: block !important; border: none !important; width: 100% !important; height: auto !important; margin: 0 !important; padding: 15mm !important; }
             .section { display: none !important; }
@@ -71,17 +71,20 @@
 
 <div class="main-content">
     <div id="dash" class="section active">
+        <div class="month-filter no-print" style="margin-bottom: 20px;">
+            <label>Select Month: </label>
+            <input type="month" id="filterMonth" onchange="refresh()">
+        </div>
         <div class="stats-grid">
             <div class="card"><h3>Sales</h3><div class="val" id="d-sales">₹0</div></div>
             <div class="card"><h3>Expenses</h3><div class="val" style="color:red" id="d-exp">₹0</div></div>
-            <div class="card"><h3>Profit</h3><div class="val" style="color:green" id="d-profit">₹0</div></div>
-            <div class="card"><h3>Pending</h3><div class="val" style="color:orange" id="d-pending">₹0</div></div>
+            <div class="card"><h3>Net Profit</h3><div class="val" style="color:green" id="d-profit">₹0</div></div>
+            <div class="card"><h3>Total Pending</h3><div class="val" style="color:orange" id="d-pending">₹0</div></div>
         </div>
         <div class="box">
             <h3>Recent Invoices</h3>
             <div class="search-container no-print">
                 <input type="text" id="searchCust" placeholder="Search by Customer..." onkeyup="refresh()">
-                <input type="text" id="searchDate" placeholder="Search by Date (DD/MM/YYYY)..." onkeyup="refresh()">
             </div>
             <table><thead><tr><th>#No</th><th>Date</th><th>Customer</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead><tbody id="h-body"></tbody></table>
         </div>
@@ -93,13 +96,18 @@
             <input type="hidden" id="edit-id" value="">
             <div class="input-row">
                 <input type="text" id="invCust" placeholder="Customer Name">
-                <select id="invStatus"><option value="Paid">Paid</option><option value="Unpaid">Unpaid</option></select>
+                <select id="invStatus"><option value="Paid">Fully Paid</option><option value="Unpaid">Pending / Partial</option></select>
+            </div>
+            <div class="input-row">
+                <input type="number" id="invAdvance" placeholder="Advance Amount (₹)" value="0">
+                <label style="font-size: 12px; color: #64748b;">Advance Date:</label>
+                <input type="date" id="invAdvDate">
             </div>
             <div class="input-row" style="background:#f8fafc; padding:15px; border:1px solid #e2e8f0;">
                 <input type="text" id="invItem" placeholder="Service Name">
                 <input type="number" id="invQty" placeholder="Qty">
                 <input type="number" id="invPrice" placeholder="Rate">
-                <button class="btn-p" onclick="addItemToList()">+ Add</button>
+                <button class="btn-p" onclick="addItemToList()">+ Add Item</button>
             </div>
             <div id="current-items-list" style="margin: 15px 0;"></div>
             <button class="btn-s" style="width:100%; padding: 15px;" onclick="saveBill()">Save & Generate Invoice</button>
@@ -124,7 +132,7 @@
                 <h3 id="p-cust" style="margin:5px 0;"></h3>
             </div>
 
-            <table style="width:100%; margin-bottom: 30px;">
+            <table style="width:100%; margin-bottom: 20px;">
                 <thead>
                     <tr style="background:#f1f5f9; border-top:2px solid #000;">
                         <th style="padding:10px;">Description</th>
@@ -138,16 +146,20 @@
 
             <div style="display:flex; justify-content:space-between; align-items: flex-start;">
                 <div class="qr-box">
-                    <p style="font-size:10px; font-weight:bold; margin-bottom:5px;">SCAN TO PAY</p>
+                    <p style="font-size:10px; font-weight:bold; margin-bottom:5px;">SCAN TO PAY BALANCE</p>
                     <div id="qrcode"></div>
                     <p style="font-size:9px; margin-top:5px;">dharmikprajapati2004@okaxis</p>
                 </div>
-                <div style="text-align:right; min-width: 200px;">
+                <div style="text-align:right; min-width: 250px;">
                     <div style="border-top: 2px solid #000; padding-top:10px;">
-                        <h2 style="margin:0;">Grand Total: ₹<span id="p-total"></span></h2>
+                        <p style="margin:5px 0;">Grand Total: <strong>₹<span id="p-total"></span></strong></p>
+                        <p style="margin:5px 0; font-size: 13px;">Advance: ₹<span id="p-advance"></span> 
+                           <br><small id="p-adv-date-label" style="color:#64748b;"></small>
+                        </p>
+                        <h2 style="margin:10px 0; color: var(--danger);">Balance Due: ₹<span id="p-due"></span></h2>
                         <p style="margin:5px 0;">Status: <strong id="p-status"></strong></p>
                     </div>
-                    <p style="margin-top:40px; font-size:12px; font-style:italic;">Authorized Signatory</p>
+                    <p style="margin-top:30px; font-size:12px; font-style:italic;">Authorized Signatory</p>
                 </div>
             </div>
             
@@ -176,10 +188,7 @@
             <h3>Contact Directory</h3>
             <div class="input-row">
                 <input type="text" id="cName" placeholder="Full Name">
-                <select id="cType">
-                    <option value="Customer">Customer</option>
-                    <option value="Supplier">Supplier</option>
-                </select>
+                <select id="cType"><option value="Customer">Customer</option><option value="Supplier">Supplier</option></select>
                 <input type="text" id="cPhone" placeholder="Phone Number">
                 <button class="btn-p" onclick="addC()">Save Contact</button>
             </div>
@@ -199,6 +208,8 @@
     const UPI_ID = "dharmikprajapati2004@okaxis";
     let db = JSON.parse(localStorage.getItem('editNest_DB')) || { inv: [], exp: [], contacts: [], lastNo: 0 };
     let tempItems = [];
+
+    document.getElementById('filterMonth').value = new Date().toISOString().slice(0, 7);
 
     function showSec(id) {
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -221,15 +232,24 @@
     }
 
     function saveBill() {
-        const cust = document.getElementById('invCust').value, status = document.getElementById('invStatus').value, eid = document.getElementById('edit-id').value;
+        const cust = document.getElementById('invCust').value, 
+              status = document.getElementById('invStatus').value, 
+              advance = parseFloat(document.getElementById('invAdvance').value) || 0,
+              advDate = document.getElementById('invAdvDate').value,
+              eid = document.getElementById('edit-id').value;
+        
         if(!cust || tempItems.length === 0) return alert("Add customer and items");
         const total = tempItems.reduce((a, b) => a + b.total, 0);
+        const today = new Date();
+        const dateStr = today.toLocaleDateString('en-GB');
+        const monthKey = today.toISOString().slice(0, 7);
+
         if(eid) {
             const index = db.inv.findIndex(i => i.no == eid);
-            db.inv[index] = { ...db.inv[index], cust, items: [...tempItems], total, status };
+            db.inv[index] = { ...db.inv[index], cust, items: [...tempItems], total, status, advance, advDate };
         } else {
             db.lastNo++;
-            db.inv.push({ no: db.lastNo, date: new Date().toLocaleDateString('en-GB'), cust, items: [...tempItems], total, status });
+            db.inv.push({ no: db.lastNo, date: dateStr, month: monthKey, cust, items: [...tempItems], total, status, advance, advDate });
         }
         localStorage.setItem('editNest_DB', JSON.stringify(db));
         resetForm(); refresh(); viewBill(eid || db.lastNo);
@@ -237,14 +257,28 @@
 
     function viewBill(no) {
         const bill = db.inv.find(v => v.no == no);
+        const due = bill.total - (bill.advance || 0);
+        
         document.getElementById('p-no').innerText = bill.no; 
         document.getElementById('p-date').innerText = bill.date; 
         document.getElementById('p-cust').innerText = bill.cust;
         document.getElementById('p-body').innerHTML = bill.items.map(it => `<tr><td>${it.item}</td><td>${it.qty}</td><td>₹${it.rate}</td><td>₹${it.total}</td></tr>`).join('');
         document.getElementById('p-total').innerText = bill.total; 
+        document.getElementById('p-advance').innerText = (bill.advance || 0);
+        
+        const advDateLabel = document.getElementById('p-adv-date-label');
+        if(bill.advance > 0 && bill.advDate) {
+            advDateLabel.innerText = "Received on: " + bill.advDate.split('-').reverse().join('/');
+        } else {
+            advDateLabel.innerText = "";
+        }
+
+        document.getElementById('p-due').innerText = due;
         document.getElementById('p-status').innerText = bill.status;
+
         const qr = document.getElementById("qrcode"); qr.innerHTML = "";
-        new QRCode(qr, { text: `upi://pay?pa=${UPI_ID}&pn=EditNest&am=${bill.total}&cu=INR`, width: 100, height: 100 });
+        new QRCode(qr, { text: `upi://pay?pa=${UPI_ID}&pn=EditNest&am=${due}&cu=INR`, width: 100, height: 100 });
+        
         document.getElementById('invoice-render').style.display = 'block';
         showSec('billing');
     }
@@ -253,6 +287,8 @@
         const bill = db.inv.find(v => v.no == no);
         document.getElementById('edit-id').value = bill.no;
         document.getElementById('invCust').value = bill.cust;
+        document.getElementById('invAdvance').value = bill.advance || 0;
+        document.getElementById('invAdvDate').value = bill.advDate || "";
         document.getElementById('invStatus').value = bill.status;
         document.getElementById('form-title').innerText = "Edit Invoice #" + no;
         tempItems = [...bill.items]; renderTempList();
@@ -260,75 +296,58 @@
         document.getElementById('invoice-render').style.display = 'none';
     }
 
-    function deleteBill(no) {
-        if(confirm("બિલ ડિલીટ કરવું છે?")) {
-            db.inv = db.inv.filter(v => v.no != no);
-            localStorage.setItem('editNest_DB', JSON.stringify(db));
-            refresh();
-        }
-    }
-
-    function addEx() {
-        const desc = document.getElementById('exName').value, amt = parseFloat(document.getElementById('exAmt').value), date = document.getElementById('exDate').value;
-        if(desc && amt) {
-            db.exp.push({ date: date || new Date().toLocaleDateString('en-GB'), desc, amt });
-            localStorage.setItem('editNest_DB', JSON.stringify(db));
-            refresh();
-            document.getElementById('exName').value=''; document.getElementById('exAmt').value='';
-        }
-    }
-
-    function deleteEx(idx) {
-        db.exp.splice(idx, 1);
-        localStorage.setItem('editNest_DB', JSON.stringify(db));
-        refresh();
-    }
-
-    function addC() {
-        const n = document.getElementById('cName').value, t = document.getElementById('cType').value, p = document.getElementById('cPhone').value;
-        if(n && p) {
-            db.contacts.push({ n, t, p });
-            localStorage.setItem('editNest_DB', JSON.stringify(db));
-            refresh();
-            document.getElementById('cName').value=''; document.getElementById('cPhone').value='';
-        }
-    }
-
-    function deleteC(idx) {
-        db.contacts.splice(idx, 1);
-        localStorage.setItem('editNest_DB', JSON.stringify(db));
-        refresh();
-    }
-
-    function resetForm() { document.getElementById('edit-id').value = ""; document.getElementById('form-title').innerText = "Create New Invoice"; document.getElementById('invCust').value = ""; tempItems = []; renderTempList(); }
-
     function refresh() {
         let ts = 0, te = 0, tp = 0;
         const sCust = document.getElementById('searchCust').value.toLowerCase();
-        const sDate = document.getElementById('searchDate').value;
+        const fMonth = document.getElementById('filterMonth').value; 
         
-        // Invoices
         const h = document.getElementById('h-body'); h.innerHTML = '';
         db.inv.forEach(v => {
-            if(v.cust.toLowerCase().includes(sCust) && v.date.includes(sDate)) {
-                ts += v.total; if(v.status==='Unpaid') tp += v.total;
-                h.innerHTML += `<tr><td>#${v.no}</td><td>${v.date}</td><td>${v.cust}</td><td>₹${v.total}</td><td><span style="color:${v.status==='Paid'?'green':'red'}">${v.status}</span></td><td><button class="btn-s" onclick="viewBill(${v.no})">View</button> <button class="btn-e" onclick="editBill(${v.no})">Edit</button> <button class="btn-d" onclick="deleteBill(${v.no})">X</button></td></tr>`;
+            const recordMonth = v.month || (v.date.split('/')[2] + "-" + v.date.split('/')[1]);
+            
+            if(recordMonth === fMonth) {
+                ts += v.total;
+                if(v.status !== 'Paid') tp += (v.total - (v.advance || 0));
+                
+                if(v.cust.toLowerCase().includes(sCust)) {
+                    h.innerHTML += `<tr><td>#${v.no}</td><td>${v.date}</td><td>${v.cust}</td><td>₹${v.total}</td><td><span style="color:${v.status==='Paid'?'green':'red'}">${v.status}</span></td><td><button class="btn-s" onclick="viewBill(${v.no})">View</button> <button class="btn-e" onclick="editBill(${v.no})">Edit</button> <button class="btn-d" onclick="deleteBill(${v.no})">X</button></td></tr>`;
+                }
             }
         });
 
-        // Expenses
-        document.getElementById('e-body').innerHTML = db.exp.map((e, i) => { te += e.amt; return `<tr><td>${e.date}</td><td>${e.desc}</td><td>₹${e.amt}</td><td><button class="btn-d" onclick="deleteEx(${i})">X</button></td></tr>` }).join('');
+        document.getElementById('e-body').innerHTML = db.exp.map((e, i) => {
+            const expMonth = e.date.slice(0, 7);
+            if(expMonth === fMonth) {
+                te += e.amt;
+                return `<tr><td>${e.date}</td><td>${e.desc}</td><td>₹${e.amt}</td><td><button class="btn-d" onclick="deleteEx(${i})">X</button></td></tr>`;
+            }
+            return "";
+        }).join('');
         
-        // Contacts
         document.getElementById('c-body').innerHTML = db.contacts.map((c, i) => `<tr><td>${c.n}</td><td>${c.t}</td><td>${c.p}</td><td><button class="btn-d" onclick="deleteC(${i})">X</button></td></tr>`).join('');
-
-        // Stats
         document.getElementById('d-sales').innerText = "₹"+ts; 
         document.getElementById('d-exp').innerText = "₹"+te; 
         document.getElementById('d-profit').innerText = "₹"+(ts-te);
         document.getElementById('d-pending').innerText = "₹"+tp;
     }
 
+    function deleteBill(no) { if(confirm("Delete Invoice?")) { db.inv = db.inv.filter(v => v.no != no); localStorage.setItem('editNest_DB', JSON.stringify(db)); refresh(); } }
+    function addEx() {
+        const desc = document.getElementById('exName').value, amt = parseFloat(document.getElementById('exAmt').value), date = document.getElementById('exDate').value;
+        if(desc && amt && date) {
+            db.exp.push({ date, desc, amt });
+            localStorage.setItem('editNest_DB', JSON.stringify(db));
+            refresh();
+            document.getElementById('exName').value=''; document.getElementById('exAmt').value='';
+        } else { alert("Please fill date and amount"); }
+    }
+    function deleteEx(idx) { db.exp.splice(idx, 1); localStorage.setItem('editNest_DB', JSON.stringify(db)); refresh(); }
+    function addC() {
+        const n = document.getElementById('cName').value, t = document.getElementById('cType').value, p = document.getElementById('cPhone').value;
+        if(n && p) { db.contacts.push({ n, t, p }); localStorage.setItem('editNest_DB', JSON.stringify(db)); refresh(); document.getElementById('cName').value=''; document.getElementById('cPhone').value=''; }
+    }
+    function deleteC(idx) { db.contacts.splice(idx, 1); localStorage.setItem('editNest_DB', JSON.stringify(db)); refresh(); }
+    function resetForm() { document.getElementById('edit-id').value = ""; document.getElementById('form-title').innerText = "Create New Invoice"; document.getElementById('invCust').value = ""; document.getElementById('invAdvance').value = "0"; document.getElementById('invAdvDate').value = ""; tempItems = []; renderTempList(); }
     function exportEx() { const ws = XLSX.utils.json_to_sheet(db.inv); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Sales"); XLSX.writeFile(wb, "EditNest_Report.xlsx"); }
     
     refresh();
